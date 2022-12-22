@@ -15,21 +15,38 @@ const App = () => {
     {"identifier":"{\"channel\": \"LiveFeedChannel\"}","message":{"post":{"id":57,"content":"Create a new message!","user_id":1,"likes_count":0,"created_at":"2022-12-22T18:16:36.458Z","updated_at":"2022-12-22T18:16:36.458Z"}}}
     */
     const connect = async () => {
+      // WebSocket is a built-in JavaScript class (it is not React)
+      // attempt a websocket connection
       ws = new WebSocket("ws://localhost:3000/cable")
+
+      // create an event handler for when the socket opens
       ws.onopen = () => {
         console.log("Websockets connected!")
+        // When the socket opens: subscribe to the Live Feed Channel
         ws.send(JSON.stringify({"command": "subscribe", "identifier": "{\"channel\": \"LiveFeedChannel\"}"}))
+        // ws.send(JSON.stringify({"command": "subscribe", "identifier": "{\"channel\": \"NotificationsChannel\"}"}))
       }
+
+      // We need an event handler for broadcasted messages -- This is the function
+      // that will run whenever ActionCable.server.broadcast( ... ) runs in the Rails app
+      // YOU WILL HAVE TO PARSE DATA
+
+      // This onmessage event handler has 0 idea about Rails or what controller did what
       ws.onmessage = (event) => {
         const { data } = event;
         let payload = JSON.parse(data)
+        // If the message from AC is a "ping", return immediately to ignore it
+        // Pings are necessary for AC to know to keep your client subscription open 
+        // We don't want to do anything with pings, they are just necessary for WS to stay up
         if (payload.type === "ping" || payload.type === "message") return;
         let x = JSON.parse(event.data)
         console.log("Event received", x)
         if (x.type === 'confirm_subscription') return;
         
+        // If a post object was sent from the server
         const post = x?.message?.post
         if (post) {
+          // prepend the new post to the list of posts in state, updating the React UI automatically!
           setPosts(prevState => {
             return [post, ...prevState]
           })
@@ -39,6 +56,7 @@ const App = () => {
     }
 
     getPosts()
+    // when App.jsx loads, attempt to connect to websockets
     connect()
     // return () => ws.close()
   }, [])
