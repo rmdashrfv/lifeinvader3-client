@@ -3,6 +3,10 @@ import { useEffect, useState } from 'react'
 const App = () => {
   const [posts, setPosts] = useState([])
 
+  const handleWebsocketMessage = (event) => {
+
+  }
+
   useEffect(() => {
     let ws;
     const getPosts = async () => {
@@ -23,7 +27,8 @@ const App = () => {
       ws.onopen = () => {
         console.log("Websockets connected!")
         // When the socket opens: subscribe to the Live Feed Channel
-        ws.send(JSON.stringify({"command": "subscribe", "identifier": "{\"channel\": \"LiveFeedChannel\"}"}))
+        // SUBSCRIBE "live_feed"
+        ws.send(JSON.stringify({"command": "subscribe", "identifier": `{"channel": "LiveFeedChannel"}`}))
         // ws.send(JSON.stringify({"command": "subscribe", "identifier": "{\"channel\": \"NotificationsChannel\"}"}))
       }
 
@@ -33,26 +38,16 @@ const App = () => {
 
       // This onmessage event handler has 0 idea about Rails or what controller did what
       ws.onmessage = (event) => {
-        const { data } = event;
-        let payload = JSON.parse(data)
-        // If the message from AC is a "ping", return immediately to ignore it
-        // Pings are necessary for AC to know to keep your client subscription open 
-        // We don't want to do anything with pings, they are just necessary for WS to stay up
-        if (payload.type === "ping" || payload.type === "message") return;
-        let x = JSON.parse(event.data)
-        console.log("Event received", x)
-        if (x.type === 'confirm_subscription') return;
-        
-        // If a post object was sent from the server
-        const post = x?.message?.post
-        if (post) {
-          // prepend the new post to the list of posts in state, updating the React UI automatically!
-          setPosts(prevState => {
-            return [post, ...prevState]
-          })
-        }
+        const data = JSON.parse(event.data)
+        if (data.type === "ping" || data.type === "welcome" || data.type === "confirm_subscription") return
+        console.log('data', data)
 
+        // Retrieve the newly created post object sent by ActionCable (Rails)
+        // Update state using setPosts to reflect this change in the browser immediately
+        const post = data.message.post
+        setPosts(prevState => [post, ...prevState])
       }
+
     }
 
     getPosts()
